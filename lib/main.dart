@@ -35,9 +35,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Container(
-        decoration: BoxDecoration(
-            image: DecorationImage(
-                image: AssetImage("assets/market2.png"), fit: BoxFit.cover)),
+        color: Colors.grey.shade700,
         child: LayoutBuilder(
             builder: (context, constraints) => FruitNinja(
                 screenSize:
@@ -192,6 +190,9 @@ class FruitNinjaState extends State<FruitNinja> {
               (widget.screenSize.height - sliceBeginPosition.dy) / ppu);
           Offset ue = Offset(sliceEnd.dx / ppu,
               (widget.screenSize.height - sliceEnd.dy) / ppu);
+          Offset direction = ue - ub;
+          Offset eub = ub - direction;
+          Offset eue = ue + direction;
           setState(() {
             List<PieceOfFruit> toRemove = [];
             for (PieceOfFruit f in fruit) {
@@ -199,8 +200,8 @@ class FruitNinjaState extends State<FruitNinja> {
               Offset currPos = f.flightPath.getPosition(elapsedSeconds);
               double currAngle = f.flightPath.getAngle(elapsedSeconds);
               List<List<Offset>> sliceParts = getSlicePaths(
-                  ub,
-                  ue,
+                  eub,
+                  eue,
                   Rect.fromCenter(
                       center: Offset.zero,
                       width: f.type.unitSize.width,
