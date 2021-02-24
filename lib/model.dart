@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/widgets.dart';
 
 const Offset GRAVITY = Offset(0, -9.8);
+const double WORLD_HEIGHT = 16.0;
 
 enum FruitType { apple, banana, mango, watermelon }
 
@@ -34,9 +35,34 @@ extension FruitTypeUtil on FruitType {
     }
   }
 
-  Widget getImageWidget(double pixelsPerUnit) => Image.asset(imageFile,
-      width: unitSize.width * pixelsPerUnit,
-      height: unitSize.height * pixelsPerUnit);
+  Widget getImageWidget(double pixelsPerUnit) =>
+      Image.asset(imageFile, width: unitSize.width * pixelsPerUnit, height: unitSize.height * pixelsPerUnit);
+}
+
+class PieceOfFruit {
+  final Key key = UniqueKey();
+  final int createdMS;
+  final FlightPath flightPath;
+  final FruitType type;
+
+  PieceOfFruit({this.createdMS, this.flightPath, this.type});
+}
+
+class SlicedFruit {
+  final Key key = UniqueKey();
+  final List<Offset> slice;
+  final FlightPath flightPath;
+  final FruitType type;
+
+  SlicedFruit({this.slice, this.flightPath, this.type});
+}
+
+class Slice {
+  final Key key = UniqueKey();
+  final Offset begin;
+  final Offset end;
+
+  Slice(this.begin, this.end);
 }
 
 // a parabolic flight path.
@@ -61,17 +87,6 @@ class FlightPath {
   List<double> get zeroes {
     double a = (GRAVITY * .5).dy;
     double sqrtTerm = sqrt(velocity.dy * velocity.dy - 4.0 * a * position.dy);
-    return [
-      (-velocity.dy + sqrtTerm) / (2 * a),
-      (-velocity.dy - sqrtTerm) / (2 * a)
-    ];
+    return [(-velocity.dy + sqrtTerm) / (2 * a), (-velocity.dy - sqrtTerm) / (2 * a)];
   }
 }
-
-Random _r = Random();
-FlightPath generateRandomFlightPath() => FlightPath(
-    angle: 1.0,
-    angularVelocity: .3 + _r.nextDouble() * 3.0,
-    position: Offset(2.0 + _r.nextDouble() * 2.0, 1.0),
-    velocity:
-        Offset(-1.0 + _r.nextDouble() * 2.0, 7.0 + _r.nextDouble() * 7.0));

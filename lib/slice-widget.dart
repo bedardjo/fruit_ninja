@@ -5,22 +5,18 @@ class SliceWidget extends StatefulWidget {
   final Offset sliceEnd;
   final Function() sliceFinished;
 
-  const SliceWidget(
-      {Key key, this.sliceBegin, this.sliceEnd, this.sliceFinished})
-      : super(key: key);
+  const SliceWidget({Key key, this.sliceBegin, this.sliceEnd, this.sliceFinished}) : super(key: key);
 
   @override
   State<StatefulWidget> createState() => SliceWidgetState();
 }
 
-class SliceWidgetState extends State<SliceWidget>
-    with SingleTickerProviderStateMixin {
+class SliceWidgetState extends State<SliceWidget> with SingleTickerProviderStateMixin {
   AnimationController controller;
   @override
   void initState() {
     super.initState();
-    controller =
-        AnimationController(vsync: this, duration: Duration(milliseconds: 120));
+    controller = AnimationController(vsync: this, duration: Duration(milliseconds: 120));
 
     controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
@@ -46,10 +42,8 @@ class SliceWidgetState extends State<SliceWidget>
           builder: (context, child) {
             Offset sliceDirection = widget.sliceEnd - widget.sliceBegin;
             return CustomPaint(
-                painter: SlicePainter(
-                    begin: widget.sliceBegin,
-                    end:
-                        widget.sliceBegin + sliceDirection * controller.value));
+                painter:
+                    SlicePainter(begin: widget.sliceBegin, end: widget.sliceBegin + sliceDirection * controller.value));
           }));
 }
 

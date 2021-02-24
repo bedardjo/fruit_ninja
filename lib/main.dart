@@ -9,89 +9,40 @@ import 'package:fruit_ninja/model.dart';
 import 'package:fruit_ninja/slice-widget.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(FruitNinjaApp());
 }
 
-class MyApp extends StatelessWidget {
+class FruitNinjaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Fruit Ninja',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: MyHomePage(),
-    );
+        title: 'Fruit Ninja',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          visualDensity: VisualDensity.adaptivePlatformDensity,
+        ),
+        home: Scaffold(
+            body: Container(
+                color: Colors.grey.shade800,
+                child: LayoutBuilder(builder: (context, constraints) {
+                  Size screenSize = Size(constraints.maxWidth, constraints.maxHeight);
+                  Size worldSize = Size(WORLD_HEIGHT * screenSize.aspectRatio, WORLD_HEIGHT);
+                  return FruitNinja(
+                    screenSize: Size(constraints.maxWidth, constraints.maxHeight),
+                    worldSize: worldSize,
+                  );
+                }))));
   }
-}
-
-class MyHomePage extends StatefulWidget {
-  @override
-  _MyHomePageState createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-        color: Colors.grey.shade700,
-        child: LayoutBuilder(
-            builder: (context, constraints) => FruitNinja(
-                screenSize:
-                    Size(constraints.maxWidth, constraints.maxHeight))));
-  }
-}
-
-class PieceOfFruit {
-  final Key key = UniqueKey();
-  final int createdMS;
-  final FlightPath flightPath;
-  final FruitType type;
-
-  PieceOfFruit({this.createdMS, this.flightPath, this.type});
-}
-
-class SlicedFruit {
-  final Key key = UniqueKey();
-  final List<Offset> slice;
-  final FlightPath flightPath;
-  final FruitType type;
-
-  SlicedFruit({this.slice, this.flightPath, this.type});
-}
-
-class Slice {
-  final Key key = UniqueKey();
-  final Offset begin;
-  final Offset end;
-
-  Slice(this.begin, this.end);
 }
 
 class FruitNinja extends StatefulWidget {
   final Size screenSize;
+  final Size worldSize;
 
-  const FruitNinja({Key key, this.screenSize}) : super(key: key);
+  const FruitNinja({Key key, this.screenSize, this.worldSize}) : super(key: key);
 
   @override
   State<StatefulWidget> createState() => FruitNinjaState();
-}
-
-class FruitSlicePath extends CustomClipper<Path> {
-  final List<Offset> normalizedPoints;
-
-  FruitSlicePath(this.normalizedPoints);
-
-  @override
-  Path getClip(Size size) {
-    return convertToPath(normalizedPoints, size);
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) {
-    return true;
-  }
 }
 
 class FruitNinjaState extends State<FruitNinja> {
@@ -106,15 +57,22 @@ class FruitNinjaState extends State<FruitNinja> {
   Offset sliceBeginPosition;
   Offset sliceEnd;
 
+  int sliced = 0;
+  int notSliced = 0;
+
   @override
   void initState() {
     super.initState();
 
-    Timer.periodic(Duration(seconds: 5), (Timer timer) {
+    Timer.periodic(Duration(seconds: 2), (Timer timer) {
       setState(() {
         fruit.add(PieceOfFruit(
             createdMS: DateTime.now().millisecondsSinceEpoch,
-            flightPath: generateRandomFlightPath(),
+            flightPath: FlightPath(
+                angle: 1.0,
+                angularVelocity: .3 + r.nextDouble() * 3.0,
+                position: Offset(2.0 + r.nextDouble() * (widget.worldSize.width - 4.0), 1.0),
+                velocity: Offset(-1.0 + r.nextDouble() * 2.0, 7.0 + r.nextDouble() * 7.0)),
             type: FruitType.values[r.nextInt(FruitType.values.length)]));
       });
     });
@@ -122,8 +80,7 @@ class FruitNinjaState extends State<FruitNinja> {
 
   @override
   Widget build(BuildContext context) {
-    double worldHeight = 16.0;
-    double ppu = widget.screenSize.height / worldHeight;
+    double ppu = widget.screenSize.height / widget.worldSize.height;
     List<Widget> stackItems = [];
     for (PieceOfFruit f in fruit) {
       stackItems.add(GravityWidget(
@@ -135,14 +92,16 @@ class FruitNinjaState extends State<FruitNinja> {
         onOffScreen: () {
           setState(() {
             fruit.remove(f);
+            notSliced++;
           });
         },
       ));
     }
     for (Slice slice in slices) {
-      Offset b = Offset(slice.begin.dx * ppu, (16.0 - slice.begin.dy) * ppu);
-      Offset e = Offset(slice.end.dx * ppu, (16.0 - slice.end.dy) * ppu);
-      stackItems.add(SliceWidget(
+      Offset b = Offset(slice.begin.dx * ppu, (widget.worldSize.height - slice.begin.dy) * ppu);
+      Offset e = Offset(slice.end.dx * ppu, (widget.worldSize.height - slice.end.dy) * ppu);
+      stackItems.add(Positioned.fill(
+          child: SliceWidget(
         sliceBegin: b,
         sliceEnd: e,
         sliceFinished: () {
@@ -150,7 +109,7 @@ class FruitNinjaState extends State<FruitNinja> {
             slices.remove(slice);
           });
         },
-      ));
+      )));
     }
     for (SlicedFruit sf in slicedFruit) {
       stackItems.add(GravityWidget(
@@ -158,9 +117,7 @@ class FruitNinjaState extends State<FruitNinja> {
         flightPath: sf.flightPath,
         unitSize: sf.type.unitSize,
         pixelsPerUnit: ppu,
-        child: ClipPath(
-            clipper: FruitSlicePath(sf.slice),
-            child: sf.type.getImageWidget(ppu)),
+        child: ClipPath(clipper: FruitSlicePath(sf.slice), child: sf.type.getImageWidget(ppu)),
         onOffScreen: () {
           setState(() {
             slicedFruit.remove(sf);
@@ -168,6 +125,26 @@ class FruitNinjaState extends State<FruitNinja> {
         },
       ));
     }
+    TextStyle scoreStyle = TextStyle(fontSize: 32, color: Colors.white, fontWeight: FontWeight.w700);
+    stackItems.add(Positioned.fill(
+        child: DefaultTextStyle(
+            style: scoreStyle,
+            child: SafeArea(
+                child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [Text("Sliced"), Text("Not Sliced")],
+                ),
+                SizedBox(
+                  height: 8,
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [Text("$sliced"), Text("$notSliced")],
+                )
+              ],
+            )))));
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       child: Stack(
@@ -183,38 +160,30 @@ class FruitNinjaState extends State<FruitNinja> {
       },
       onPanEnd: (DragEndDetails details) {
         int nowMS = DateTime.now().millisecondsSinceEpoch;
-        int timeDiff = nowMS - sliceBeginMoment;
-        double distDiffSq = (sliceEnd - sliceBeginPosition).distanceSquared;
-        if (timeDiff < 1250 && distDiffSq > 25.0) {
-          Offset ub = Offset(sliceBeginPosition.dx / ppu,
-              (widget.screenSize.height - sliceBeginPosition.dy) / ppu);
-          Offset ue = Offset(sliceEnd.dx / ppu,
-              (widget.screenSize.height - sliceEnd.dy) / ppu);
-          Offset direction = ue - ub;
-          Offset eub = ub - direction;
-          Offset eue = ue + direction;
+        if (nowMS - sliceBeginMoment < 1250 && (sliceEnd - sliceBeginPosition).distanceSquared > 25.0) {
           setState(() {
+            Offset worldSliceBegin =
+                Offset(sliceBeginPosition.dx / ppu, (widget.screenSize.height - sliceBeginPosition.dy) / ppu);
+            Offset worldSliceEnd = Offset(sliceEnd.dx / ppu, (widget.screenSize.height - sliceEnd.dy) / ppu);
+            this.slices.add(Slice(worldSliceBegin, worldSliceEnd));
+            Offset direction = worldSliceEnd - worldSliceBegin;
+
+            worldSliceBegin = worldSliceBegin - direction;
+            worldSliceEnd = worldSliceEnd + direction;
             List<PieceOfFruit> toRemove = [];
             for (PieceOfFruit f in fruit) {
               double elapsedSeconds = (nowMS - f.createdMS) / 1000.0;
               Offset currPos = f.flightPath.getPosition(elapsedSeconds);
               double currAngle = f.flightPath.getAngle(elapsedSeconds);
-              List<List<Offset>> sliceParts = getSlicePaths(
-                  eub,
-                  eue,
-                  Rect.fromCenter(
-                      center: Offset.zero,
-                      width: f.type.unitSize.width,
-                      height: f.type.unitSize.height),
-                  currPos,
-                  currAngle);
+              List<List<Offset>> sliceParts =
+                  getSlicePaths(worldSliceBegin, worldSliceEnd, f.type.unitSize, currPos, currAngle);
               if (sliceParts.isNotEmpty) {
                 toRemove.add(f);
                 slicedFruit.add(SlicedFruit(
                     slice: sliceParts[0],
                     flightPath: FlightPath(
                         angle: currAngle,
-                        angularVelocity: f.flightPath.angularVelocity,
+                        angularVelocity: f.flightPath.angularVelocity - .25 + r.nextDouble() * .5,
                         position: currPos,
                         velocity: Offset(-1.0, 2.0)),
                     type: f.type));
@@ -222,17 +191,37 @@ class FruitNinjaState extends State<FruitNinja> {
                     slice: sliceParts[1],
                     flightPath: FlightPath(
                         angle: currAngle,
-                        angularVelocity: f.flightPath.angularVelocity,
+                        angularVelocity: f.flightPath.angularVelocity - .25 + r.nextDouble() * .5,
                         position: currPos,
                         velocity: Offset(1.0, 2.0)),
                     type: f.type));
               }
             }
+            sliced += toRemove.length;
             fruit.removeWhere((e) => toRemove.contains(e));
-            this.slices.add(Slice(ub, ue));
           });
         }
       },
     );
+  }
+}
+
+class FruitSlicePath extends CustomClipper<Path> {
+  final List<Offset> normalizedPoints;
+
+  FruitSlicePath(this.normalizedPoints);
+
+  @override
+  Path getClip(Size size) {
+    Path p = Path()..moveTo(normalizedPoints[0].dx * size.width, normalizedPoints[0].dy * size.height);
+    for (Offset o in normalizedPoints.skip(1)) {
+      p.lineTo(o.dx * size.width, o.dy * size.height);
+    }
+    return p..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) {
+    return false;
   }
 }
