@@ -1,64 +1,52 @@
 import 'dart:math';
 
 import 'package:flutter/widgets.dart';
-import 'package:fruit_ninja/fruit-math.dart';
-import 'package:fruit_ninja/trajectory.dart';
+import 'package:fruit_ninja/model.dart';
 
 class GravityWidget extends StatefulWidget {
-  final Offset pos;
-  final Offset vel;
-
-  final double angle;
-  final double angularVelocity;
+  final FlightPath flightPath;
 
   final Size unitSize;
   final double pixelsPerUnit;
 
   final Widget child;
 
+  final Function() onOffScreen;
+
   const GravityWidget(
       {Key key,
-      this.pos,
-      this.vel,
-      this.angle,
-      this.angularVelocity,
+      this.flightPath,
       this.unitSize,
       this.pixelsPerUnit,
-      this.child})
+      this.child,
+      this.onOffScreen})
       : super(key: key);
 
   @override
   State<StatefulWidget> createState() => GravityWidgetState();
-
-  List<double> getFallingZeros() {
-    return getZeros(pos, vel);
-  }
 }
 
 class GravityWidgetState extends State<GravityWidget>
     with SingleTickerProviderStateMixin {
   AnimationController controller;
 
-  Animation<Offset> trajectory;
-  Animation<double> angle;
-
   @override
   void initState() {
     super.initState();
 
-    List<double> zeros = widget.getFallingZeros();
+    List<double> zeros = widget.flightPath.zeroes;
     double fallTime = max(zeros[0], zeros[1]);
 
     controller = AnimationController(
         vsync: this,
-        upperBound: fallTime,
-        duration: Duration(milliseconds: (fallTime * 1000.0).round()));
+        upperBound: fallTime + 3.0, // allow an extra 3 sec of fall time
+        duration: Duration(milliseconds: ((fallTime + 3.0) * 1000.0).round()));
 
-    trajectory = Trajectory(widget.pos, widget.vel).animate(controller);
-    angle = Tween(
-            begin: widget.angle,
-            end: widget.angle + widget.angularVelocity * fallTime)
-        .animate(controller);
+    controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        widget.onOffScreen();
+      }
+    });
 
     controller.forward();
   }
@@ -75,14 +63,14 @@ class GravityWidgetState extends State<GravityWidget>
   Widget build(BuildContext context) => AnimatedBuilder(
       animation: controller,
       builder: (context, child) {
-        Offset pos = getPosition(widget.pos, widget.vel, controller.value) *
+        Offset pos = widget.flightPath.getPosition(controller.value) *
             widget.pixelsPerUnit;
         return Positioned(
           left: pos.dx - widget.unitSize.width * .5 * widget.pixelsPerUnit,
           bottom: pos.dy - widget.unitSize.height * .5 * widget.pixelsPerUnit,
           child: Transform(
-            transform: Matrix4.rotationZ(
-                widget.angle + widget.angularVelocity * controller.value),
+            transform:
+                Matrix4.rotationZ(widget.flightPath.getAngle(controller.value)),
             alignment: Alignment.center,
             child: child,
           ),

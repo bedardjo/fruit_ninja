@@ -1,8 +1,6 @@
 import 'dart:math';
 import 'dart:ui';
 
-import 'package:fruit_ninja/constants.dart';
-
 List<Offset> rotatePointsAroundPosition(
     Offset s1, Offset s2, Offset position, double boxAngle) {
   double s = sin(boxAngle);
@@ -102,14 +100,4 @@ List<List<Offset>> getSlicePaths(
   } else {
     return [];
   }
-}
-
-List<double> getZeros(Offset p, Offset v) {
-  double a = (GRAVITY * .5).dy;
-  double sqrtTerm = sqrt(v.dy * v.dy - 4.0 * a * p.dy);
-  return [(-v.dy + sqrtTerm) / (2 * a), (-v.dy - sqrtTerm) / (2 * a)];
-}
-
-Offset getPosition(Offset pos, Offset vel, double t) {
-  return (GRAVITY * .5) * t * t + vel * t + pos;
 }

@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:fruit_ninja/constants.dart';
 import 'package:fruit_ninja/fruit-math.dart';
 import 'package:fruit_ninja/gravity-widget.dart';
+import 'package:fruit_ninja/model.dart';
+import 'package:fruit_ninja/slice-widget.dart';
 
 void main() {
   runApp(MyApp());
@@ -33,7 +35,9 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Container(
-        color: Colors.lightBlue,
+        decoration: BoxDecoration(
+            image: DecorationImage(
+                image: AssetImage("assets/market2.png"), fit: BoxFit.cover)),
         child: LayoutBuilder(
             builder: (context, constraints) => FruitNinja(
                 screenSize:
@@ -44,30 +48,23 @@ class _MyHomePageState extends State<MyHomePage> {
 class PieceOfFruit {
   final Key key = UniqueKey();
   final int createdMS;
-  final double ai;
-  final double av;
-  final Offset pi;
-  final Offset v;
-  final Size unitSize;
+  final FlightPath flightPath;
+  final FruitType type;
 
-  PieceOfFruit(
-      {this.createdMS, this.ai, this.av, this.pi, this.v, this.unitSize});
+  PieceOfFruit({this.createdMS, this.flightPath, this.type});
 }
 
 class SlicedFruit {
   final Key key = UniqueKey();
   final List<Offset> slice;
-  final double angle;
-  final double angularVelocity;
-  final Offset pos;
-  final Offset vel;
-  final Size unitSize;
+  final FlightPath flightPath;
+  final FruitType type;
 
-  SlicedFruit(this.slice, this.angle, this.angularVelocity, this.pos, this.vel,
-      this.unitSize);
+  SlicedFruit({this.slice, this.flightPath, this.type});
 }
 
 class Slice {
+  final Key key = UniqueKey();
   final Offset begin;
   final Offset end;
 
@@ -119,11 +116,8 @@ class FruitNinjaState extends State<FruitNinja> {
       setState(() {
         fruit.add(PieceOfFruit(
             createdMS: DateTime.now().millisecondsSinceEpoch,
-            ai: 1.0,
-            av: 1.0 + r.nextDouble() * 4.0,
-            pi: Offset(2.0 + r.nextDouble() * 2.0, 1.0),
-            v: Offset(-1.0 + r.nextDouble() * 2.0, 7.0 + r.nextDouble() * 9.0),
-            unitSize: Size(2.0, 2.0)));
+            flightPath: generateRandomFlightPath(),
+            type: FruitType.values[r.nextInt(FruitType.values.length)]));
       });
     });
   }
@@ -135,35 +129,46 @@ class FruitNinjaState extends State<FruitNinja> {
     List<Widget> stackItems = [];
     for (PieceOfFruit f in fruit) {
       stackItems.add(GravityWidget(
-          key: f.key,
-          pos: f.pi,
-          vel: f.v,
-          angle: f.ai,
-          angularVelocity: f.av,
-          unitSize: f.unitSize,
-          pixelsPerUnit: ppu,
-          child: Image.asset("assets/apple.png",
-              width: f.unitSize.width * ppu, height: f.unitSize.height * ppu)));
+        key: f.key,
+        flightPath: f.flightPath,
+        unitSize: f.type.unitSize,
+        pixelsPerUnit: ppu,
+        child: f.type.getImageWidget(ppu),
+        onOffScreen: () {
+          setState(() {
+            fruit.remove(f);
+          });
+        },
+      ));
     }
     for (Slice slice in slices) {
       Offset b = Offset(slice.begin.dx * ppu, (16.0 - slice.begin.dy) * ppu);
       Offset e = Offset(slice.end.dx * ppu, (16.0 - slice.end.dy) * ppu);
-      stackItems.add(SliceWidget(sliceBegin: b, sliceEnd: e));
+      stackItems.add(SliceWidget(
+        sliceBegin: b,
+        sliceEnd: e,
+        sliceFinished: () {
+          setState(() {
+            slices.remove(slice);
+          });
+        },
+      ));
     }
     for (SlicedFruit sf in slicedFruit) {
       stackItems.add(GravityWidget(
-          key: sf.key,
-          pos: sf.pos,
-          vel: sf.vel,
-          angle: sf.angle,
-          angularVelocity: sf.angularVelocity,
-          unitSize: sf.unitSize,
-          pixelsPerUnit: ppu,
-          child: ClipPath(
-              clipper: FruitSlicePath(sf.slice),
-              child: Image.asset("assets/apple.png",
-                  width: sf.unitSize.width * ppu,
-                  height: sf.unitSize.height * ppu))));
+        key: sf.key,
+        flightPath: sf.flightPath,
+        unitSize: sf.type.unitSize,
+        pixelsPerUnit: ppu,
+        child: ClipPath(
+            clipper: FruitSlicePath(sf.slice),
+            child: sf.type.getImageWidget(ppu)),
+        onOffScreen: () {
+          setState(() {
+            slicedFruit.remove(sf);
+          });
+        },
+      ));
     }
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
@@ -191,23 +196,35 @@ class FruitNinjaState extends State<FruitNinja> {
             List<PieceOfFruit> toRemove = [];
             for (PieceOfFruit f in fruit) {
               double elapsedSeconds = (nowMS - f.createdMS) / 1000.0;
-              Offset currPos = getPosition(f.pi, f.v, elapsedSeconds);
-              double currAngle = f.ai + f.av * elapsedSeconds;
+              Offset currPos = f.flightPath.getPosition(elapsedSeconds);
+              double currAngle = f.flightPath.getAngle(elapsedSeconds);
               List<List<Offset>> sliceParts = getSlicePaths(
                   ub,
                   ue,
                   Rect.fromCenter(
                       center: Offset.zero,
-                      width: f.unitSize.width,
-                      height: f.unitSize.height),
-                  getPosition(f.pi, f.v, elapsedSeconds),
-                  f.ai + f.av * elapsedSeconds);
+                      width: f.type.unitSize.width,
+                      height: f.type.unitSize.height),
+                  currPos,
+                  currAngle);
               if (sliceParts.isNotEmpty) {
                 toRemove.add(f);
-                slicedFruit.add(SlicedFruit(sliceParts[0], currAngle, f.av,
-                    currPos, Offset(-.5, .5), f.unitSize));
-                slicedFruit.add(SlicedFruit(sliceParts[1], currAngle, f.av,
-                    currPos, Offset(.5, .5), f.unitSize));
+                slicedFruit.add(SlicedFruit(
+                    slice: sliceParts[0],
+                    flightPath: FlightPath(
+                        angle: currAngle,
+                        angularVelocity: f.flightPath.angularVelocity,
+                        position: currPos,
+                        velocity: Offset(-1.0, 2.0)),
+                    type: f.type));
+                slicedFruit.add(SlicedFruit(
+                    slice: sliceParts[1],
+                    flightPath: FlightPath(
+                        angle: currAngle,
+                        angularVelocity: f.flightPath.angularVelocity,
+                        position: currPos,
+                        velocity: Offset(1.0, 2.0)),
+                    type: f.type));
               }
             }
             fruit.removeWhere((e) => toRemove.contains(e));
@@ -216,47 +233,5 @@ class FruitNinjaState extends State<FruitNinja> {
         }
       },
     );
-  }
-}
-
-class SliceWidget extends StatefulWidget {
-  final Offset sliceBegin;
-  final Offset sliceEnd;
-
-  const SliceWidget({Key key, this.sliceBegin, this.sliceEnd})
-      : super(key: key);
-
-  @override
-  State<StatefulWidget> createState() => SliceWidgetState();
-}
-
-class SliceWidgetState extends State<SliceWidget> {
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-      child: CustomPaint(
-          painter:
-              SlicePainter(begin: widget.sliceBegin, end: widget.sliceEnd)));
-}
-
-class SlicePainter extends CustomPainter {
-  final Offset begin;
-  final Offset end;
-
-  SlicePainter({this.begin, this.end});
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawPath(
-        Path()
-          ..moveTo(begin.dx, begin.dy)
-          ..lineTo(end.dx, end.dy),
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 5);
-  }
-
-  @override
-  bool shouldRepaint(SlicePainter o) {
-    return true;
   }
 }
