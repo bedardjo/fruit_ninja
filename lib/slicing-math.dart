@@ -70,5 +70,5 @@ List<List<Offset>> getSlicePaths(Offset s1, Offset s2, Size boxSize, Offset boxP
   path1 = path1.map((e) => Offset((e.dx - box.left) / box.width, 1.0 - (e.dy - bot) / box.height)).toList();
   path2 = path2.map((e) => Offset((e.dx - box.left) / box.width, 1.0 - (e.dy - bot) / box.height)).toList();
 
-  return path1.length > 2 && path2.length > 2 ? [path1..add(path1[0]), path2..add(path2[0])] : [];
+  return path1.length > 2 && path2.length > 2 ? [path1, path2] : [];
 }
