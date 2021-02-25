@@ -14,14 +14,6 @@ List<Offset> rotatePointsAroundPosition(Offset s1, Offset s2, Offset position, d
   return [new1 + position, new2 + position];
 }
 
-Path convertToPath(List<Offset> offsets, Size size) {
-  Path p = Path()..moveTo(offsets[0].dx * size.width, offsets[0].dy * size.height);
-  for (Offset o in offsets.skip(1)) {
-    p.lineTo(o.dx * size.width, o.dy * size.height);
-  }
-  return p..close();
-}
-
 // returns a box sliced by a line. Size of returned value will either be
 // empty if there's no intersection, or will be 2 (describing the two
 // polygons formed by slicing the box)

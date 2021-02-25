@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/widgets.dart';
 import 'package:fruit_ninja/model.dart';
 
-class GravityWidget extends StatefulWidget {
+class FlightPathWidget extends StatefulWidget {
   final FlightPath flightPath;
 
   final Size unitSize;
@@ -13,14 +13,14 @@ class GravityWidget extends StatefulWidget {
 
   final Function() onOffScreen;
 
-  const GravityWidget({Key key, this.flightPath, this.unitSize, this.pixelsPerUnit, this.child, this.onOffScreen})
+  const FlightPathWidget({Key key, this.flightPath, this.unitSize, this.pixelsPerUnit, this.child, this.onOffScreen})
       : super(key: key);
 
   @override
-  State<StatefulWidget> createState() => GravityWidgetState();
+  State<StatefulWidget> createState() => FlightPathWidgetState();
 }
 
-class GravityWidgetState extends State<GravityWidget> with SingleTickerProviderStateMixin {
+class FlightPathWidgetState extends State<FlightPathWidget> with SingleTickerProviderStateMixin {
   AnimationController controller;
 
   @override

@@ -3,7 +3,7 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:fruit_ninja/fruit-math.dart';
+import 'package:fruit_ninja/slicing-math.dart';
 import 'package:fruit_ninja/gravity-widget.dart';
 import 'package:fruit_ninja/model.dart';
 import 'package:fruit_ninja/slice-widget.dart';
@@ -47,6 +47,9 @@ class FruitNinja extends StatefulWidget {
 
 class FruitNinjaState extends State<FruitNinja> {
   Random r = Random();
+
+  Timer periodicFruitLauncher;
+
   List<PieceOfFruit> fruit = [];
 
   List<SlicedFruit> slicedFruit = [];
@@ -64,7 +67,7 @@ class FruitNinjaState extends State<FruitNinja> {
   void initState() {
     super.initState();
 
-    Timer.periodic(Duration(seconds: 2), (Timer timer) {
+    periodicFruitLauncher = Timer.periodic(Duration(seconds: 2), (Timer timer) {
       setState(() {
         fruit.add(PieceOfFruit(
             createdMS: DateTime.now().millisecondsSinceEpoch,
@@ -79,11 +82,19 @@ class FruitNinjaState extends State<FruitNinja> {
   }
 
   @override
+  void dispose() {
+    if (periodicFruitLauncher != null) {
+      periodicFruitLauncher.cancel();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     double ppu = widget.screenSize.height / widget.worldSize.height;
     List<Widget> stackItems = [];
     for (PieceOfFruit f in fruit) {
-      stackItems.add(GravityWidget(
+      stackItems.add(FlightPathWidget(
         key: f.key,
         flightPath: f.flightPath,
         unitSize: f.type.unitSize,
@@ -112,7 +123,7 @@ class FruitNinjaState extends State<FruitNinja> {
       )));
     }
     for (SlicedFruit sf in slicedFruit) {
-      stackItems.add(GravityWidget(
+      stackItems.add(FlightPathWidget(
         key: sf.key,
         flightPath: sf.flightPath,
         unitSize: sf.type.unitSize,
@@ -134,14 +145,22 @@ class FruitNinjaState extends State<FruitNinja> {
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [Text("Sliced"), Text("Not Sliced")],
-                ),
-                SizedBox(
-                  height: 8,
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [Text("$sliced"), Text("$notSliced")],
+                  children: [
+                    Column(children: [
+                      Text("Sliced"),
+                      SizedBox(
+                        height: 8,
+                      ),
+                      Text("$sliced")
+                    ]),
+                    Column(children: [
+                      Text("Not Sliced"),
+                      SizedBox(
+                        height: 8,
+                      ),
+                      Text("$notSliced")
+                    ])
+                  ],
                 )
               ],
             )))));
